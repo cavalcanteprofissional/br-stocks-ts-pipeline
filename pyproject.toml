@@ -1,0 +1,34 @@
+[project]
+name = "br-stocks-ts-pipeline"
+version = "0.1.0"
+description = "Automated time series analysis pipeline for Brazilian stocks — ARIMA/SARIMA forecasting, anomaly detection, and interactive Streamlit dashboard with multi-entity support via Yahoo Finance."
+authors = [
+    {name = "Lucas Cavalcante dos Santos"}
+]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas (>=3.0.3,<4.0.0)",
+    "numpy (>=2.4.6,<3.0.0)",
+    "matplotlib (>=3.11.0,<4.0.0)",
+    "seaborn (>=0.13.2,<0.14.0)",
+    "statsmodels (>=0.14.6,<0.15.0)",
+    "pmdarima (>=2.1.1,<3.0.0)",
+    "scikit-learn (>=1.9.0,<2.0.0)",
+    "sqlalchemy (>=2.0.50,<3.0.0)",
+    "psycopg2-binary (>=2.9.12,<3.0.0)",
+    "streamlit (>=1.58.0,<2.0.0)",
+    "plotly (>=6.8.0,<7.0.0)",
+    "yfinance (>=1.4.1,<2.0.0)",
+    "python-dotenv (>=1.2.2,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.1.0"
+black = "^26.5.1"
