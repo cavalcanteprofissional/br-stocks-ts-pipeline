@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+*.pyc
+
+# Environment
+.env
+venv/
+.venv/
+
+# Data & Cache
+data/*
+!data/dashboard_data.json
+*.parquet
+
+# Output
+results/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+debug_*
+/dashboard_screenshot.png
+
+# Project docs
+plano_implementacao.md
+instrucao_analise_series_temporais.md
+apresentacao.md
+
+# Skills
+.claude/
+
+# Poetry
+poetry.toml
