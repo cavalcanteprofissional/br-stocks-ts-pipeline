@@ -27,6 +27,8 @@ def _best_worst_entities(entities: dict[str, pd.DataFrame], value_col: str):
         series = df[value_col].dropna()
         if len(series) > 1:
             returns[eid] = (series.iloc[-1] / series.iloc[0]) - 1
+    if not returns:
+        return None, None, {}
     sorted_ents = sorted(returns, key=returns.get)
     return sorted_ents[0], sorted_ents[-1], returns
 
@@ -45,14 +47,15 @@ def plot_series(entities: dict[str, pd.DataFrame]) -> go.Figure:
         ))
 
     worst_id, best_id, _ = _best_worst_entities(entities, value_col)
-    for eid, color, label in [(best_id, "#0E9F6E", "Best Performer"), (worst_id, "#E02424", "Worst Performer")]:
-        series = entities[eid][value_col]
-        fig.add_trace(go.Scatter(
-            x=series.index, y=series.values,
-            mode="lines", name=f"{eid} ({label})",
-            line=dict(width=3, color=color),
-            opacity=1,
-        ))
+    if best_id is not None:
+        for eid, color, label in [(best_id, "#0E9F6E", "Best Performer"), (worst_id, "#E02424", "Worst Performer")]:
+            series = entities[eid][value_col]
+            fig.add_trace(go.Scatter(
+                x=series.index, y=series.values,
+                mode="lines", name=f"{eid} ({label})",
+                line=dict(width=3, color=color),
+                opacity=1,
+            ))
 
     for start, end, label, color in EVENTS:
         fig.add_vrect(x0=start, x1=end, fillcolor=color, opacity=0.08, line_width=0)
@@ -83,8 +86,12 @@ def plot_returns_with_context(entities: dict[str, pd.DataFrame]) -> go.Figure:
             line=dict(width=1, color=c),
         ))
 
-    first_id = next(e for e in entities if "Returns" in entities[e].columns)
+    first_id = next((e for e in entities if "Returns" in entities[e].columns), None)
+    if first_id is None:
+        return fig
     r = entities[first_id]["Returns"].dropna()
+    if r.empty:
+        return fig
     mean = r.mean()
     std = r.std()
     fig.add_hline(y=mean + 2 * std, line=dict(color="#E02424", dash="dash", width=1),
@@ -115,6 +122,8 @@ def plot_seasonal_boxplot(entities: dict[str, pd.DataFrame]) -> go.Figure:
     fig = go.Figure()
     for i, entity_id in enumerate(top_entities):
         df = entities[entity_id].copy()
+        if df.empty:
+            continue
         df[group_col] = df.index.to_series().dt.month if group_col == "month" else df.index.to_series().dt.quarter
         c = STORY_COLORS[i % len(STORY_COLORS)]
         for label, group in df.groupby(group_col):
@@ -123,7 +132,7 @@ def plot_seasonal_boxplot(entities: dict[str, pd.DataFrame]) -> go.Figure:
                 name=str(label),
                 legendgroup=entity_id,
                 marker_color=c,
-                showlegend=(label == df[group_col].iloc[0]),
+                showlegend=bool(label == df[group_col].iloc[0]),
             ))
 
     fig.update_layout(
@@ -144,6 +153,8 @@ def plot_distribution(entities: dict[str, pd.DataFrame]) -> go.Figure:
 
     for i, entity_id in enumerate(top_entities, 1):
         vals = entities[entity_id][value_col].dropna().values
+        if len(vals) == 0:
+            continue
         c = STORY_COLORS[(i - 1) % len(STORY_COLORS)]
 
         hist, bin_edges = np.histogram(vals, bins=30, density=True)
@@ -173,8 +184,12 @@ def plot_distribution(entities: dict[str, pd.DataFrame]) -> go.Figure:
 
 def plot_calendar_heatmap(entities: dict[str, pd.DataFrame]) -> go.Figure:
     value_col = config.VALUE_COLUMN
+    if not entities:
+        return go.Figure()
     entity_id = list(entities.keys())[0]
     df = entities[entity_id].copy()
+    if df.empty or df[value_col].dropna().empty:
+        return go.Figure()
     df["year"] = df.index.year
     df["month"] = df.index.month
     pivot = df.pivot_table(values=value_col, index="year", columns="month", aggfunc="mean")
@@ -192,8 +207,12 @@ def plot_calendar_heatmap(entities: dict[str, pd.DataFrame]) -> go.Figure:
 
 
 def plot_correlation(entities: dict[str, pd.DataFrame]) -> go.Figure:
+    if not entities:
+        return go.Figure()
     value_col = config.VALUE_COLUMN
     aligned = pd.DataFrame({eid: df[value_col] for eid, df in entities.items()}).dropna()
+    if aligned.empty:
+        return go.Figure()
     corr = aligned.corr()
 
     fig = px.imshow(
@@ -220,7 +239,11 @@ def plot_acf_pacf(entities: dict[str, pd.DataFrame]) -> go.Figure:
 
     for i, entity_id in enumerate(ents, 1):
         series = entities[entity_id][value_col].dropna()
+        if len(series) < 3:
+            continue
         nlags = min(30, len(series) // 2 - 1)
+        if nlags < 1:
+            continue
 
         acf_vals = acf(series, nlags=nlags)
         pacf_vals = pacf(series, nlags=nlags)
@@ -247,18 +270,28 @@ def plot_acf_pacf(entities: dict[str, pd.DataFrame]) -> go.Figure:
 def plot_volatility(entities: dict[str, pd.DataFrame]) -> go.Figure:
     fig = go.Figure()
     colors = iter(STORY_COLORS)
+    all_vols = []
 
     for entity_id, df in entities.items():
         if "Returns" not in df.columns:
             continue
         c = next(colors)
-        vol = df["Returns"].rolling(12).std()
+        ret = df["Returns"].dropna()
+        if len(ret) < 12:
+            continue
+        vol = ret.rolling(12).std()
         fig.add_trace(go.Scatter(
             x=vol.index, y=vol.values, mode="lines",
             name=entity_id, opacity=0.7, line=dict(width=1.5, color=c),
         ))
+        all_vols.append(vol)
 
-    fig.add_hline(y=vol.quantile(0.95) if "vol" in dir() else 0.05,
+    if all_vols:
+        combined = pd.concat(all_vols).dropna()
+        threshold = combined.quantile(0.95) if not combined.empty else 0.05
+    else:
+        threshold = 0.05
+    fig.add_hline(y=threshold,
                   line=dict(color="#E02424", dash="dash", width=1),
                   annotation_text="High Vol Threshold")
 
@@ -291,12 +324,13 @@ def plot_drawdown(entities: dict[str, pd.DataFrame]) -> go.Figure:
     fig.add_hline(y=-20, line=dict(color="#FF5630", dash="dash", width=1),
                   annotation_text="-20% (Severe)")
 
-    min_dd = drawdown.min()
-    min_date = drawdown.idxmin()
-    fig.add_annotation(x=min_date, y=min_dd,
-                       text=f"Peak Drawdown: {min_dd:.1f}%",
-                       showarrow=True, arrowhead=1,
-                       font=dict(color="#E02424", size=12))
+    if not drawdown.dropna().empty:
+        min_dd = drawdown.min()
+        min_date = drawdown.idxmin()
+        fig.add_annotation(x=min_date, y=min_dd,
+                           text=f"Peak Drawdown: {min_dd:.1f}%",
+                           showarrow=True, arrowhead=1,
+                           font=dict(color="#E02424", size=12))
 
     fig.update_layout(
         title=dict(text=f"Drawdown: Risco Histórico — {entity_id}", font=dict(size=18)),
@@ -317,6 +351,8 @@ def plot_top_entities_comparison(entities: dict[str, pd.DataFrame]) -> go.Figure
     fig = go.Figure()
     for eid in selected:
         series = entities[eid][value_col]
+        if series.dropna().empty:
+            continue
         normalized = series / series.iloc[0] * 100
         c = STORY_COLORS[selected.index(eid) % len(STORY_COLORS)]
         dash = "dot" if eid in bottom_3 else "solid"
@@ -343,9 +379,11 @@ def plot_top_entities_comparison(entities: dict[str, pd.DataFrame]) -> go.Figure
 
 
 def plot_monthly_returns_heatmap(entities: dict[str, pd.DataFrame]) -> go.Figure:
+    if not entities:
+        return go.Figure()
     entity_id = list(entities.keys())[0]
     df = entities[entity_id].copy()
-    if "Returns" not in df.columns:
+    if "Returns" not in df.columns or df["Returns"].dropna().empty:
         return go.Figure()
 
     df["year"] = df.index.year

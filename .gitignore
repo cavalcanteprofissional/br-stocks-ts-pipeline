@@ -27,6 +27,7 @@ results/
 # OS
 .DS_Store
 Thumbs.db
+nul
 
 # Project docs
 plano_implementacao.md

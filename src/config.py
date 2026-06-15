@@ -13,7 +13,7 @@ class Config:
     FILE_PATH: str = ""
     TICKERS: list[str] = field(default_factory=lambda: [
         "PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA",
-        "ABEV3.SA", "WEGE3.SA", "BBAS3.SA", "ELET3.SA",
+        "ABEV3.SA", "WEGE3.SA", "BBAS3.SA",
         "B3SA3.SA", "RENT3.SA",
     ])
     DATE_COLUMN: str = "Date"

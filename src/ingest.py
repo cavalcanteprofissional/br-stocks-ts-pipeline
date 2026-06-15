@@ -29,10 +29,7 @@ def _ingest_from_api() -> dict[str, pd.DataFrame]:
 
     for ticker in config.TICKERS:
         cache_path = cache_dir / f"{ticker}.csv"
-        if cache_path.exists():
-            logger.info(f"Loading {ticker} from cache")
-            df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
-        else:
+        try:
             logger.info(f"Downloading {ticker} from Yahoo Finance")
             data = yf.download(
                 ticker,
@@ -41,14 +38,31 @@ def _ingest_from_api() -> dict[str, pd.DataFrame]:
                 auto_adjust=True,
                 progress=False,
             )
-            if data.empty:
-                logger.warning(f"No data for {ticker}, skipping")
+        except Exception as e:
+            logger.warning(f"API error for {ticker}: {e}")
+            data = pd.DataFrame()
+
+        if data.empty:
+            logger.warning(f"No API data for {ticker}")
+            if cache_path.exists():
+                logger.info(f"Falling back to cached CSV for {ticker}")
+                df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
+            else:
+                logger.warning(f"No cached data for {ticker}, skipping")
                 continue
+        else:
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.droplevel(1)
+
             df = data.reset_index()
             df.to_csv(cache_path, index=False)
             df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
 
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.droplevel(1)
+
         if not df.empty and config.VALUE_COLUMN in df.columns:
+            df[config.VALUE_COLUMN] = pd.to_numeric(df[config.VALUE_COLUMN], errors="coerce")
             entities[ticker] = df[[config.VALUE_COLUMN]]
         elif not df.empty:
             entities[ticker] = df

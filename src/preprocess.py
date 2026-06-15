@@ -35,7 +35,7 @@ def _resample_and_fill(df: pd.DataFrame) -> pd.DataFrame:
     value_col = config.VALUE_COLUMN
 
     if df.index.freq is None:
-        df = df.resample(freq).asfreq()
+        df = df.resample(freq).last()
 
     if df[value_col].isna().sum() > 0:
         total_gaps = df[value_col].isna().sum()
@@ -43,6 +43,11 @@ def _resample_and_fill(df: pd.DataFrame) -> pd.DataFrame:
         gap_pct = total_gaps / total_len
         logger.info(f"Filling {total_gaps}/{total_len} gaps ({gap_pct:.1%})")
 
+        if df[value_col].isna().all():
+            logger.error(f"Column '{value_col}' is entirely NaN — cannot fill")
+            return df
+
+        df[value_col] = pd.to_numeric(df[value_col], errors="coerce")
         df[value_col] = df[value_col].ffill(limit=2)
         df[value_col] = df[value_col].interpolate(method="linear", limit_direction="both")
 

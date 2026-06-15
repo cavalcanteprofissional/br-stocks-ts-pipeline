@@ -34,6 +34,21 @@ def decompose_entity(df: pd.DataFrame, period: int | None = None) -> dict:
     series = df[value_col]
     period = period or config.seasonal_period
 
+    series_clean = series.dropna()
+    if len(series_clean) < period * 2:
+        logger.error(
+            f"Insufficient data for decomposition: "
+            f"{len(series_clean)} obs, need at least {period * 2}"
+        )
+        return {
+            "observed": series,
+            "trend": pd.Series(dtype=float),
+            "seasonal": pd.Series(dtype=float),
+            "resid": pd.Series(dtype=float),
+            "model": "additive",
+            "period": period,
+        }
+
     model = auto_detect_model(series, period)
     logger.info(f"Detected model: {model}, period: {period}")
 
