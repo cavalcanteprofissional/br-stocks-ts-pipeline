@@ -30,11 +30,12 @@ results/
 Thumbs.db
 nul
 debug_*
-*.png
+/dashboard_screenshot.png
 
 # Project docs
 plano_implementacao.md
 instrucao_analise_series_temporais.md
+apresentacao.md
 
 # Skills
 .claude/
