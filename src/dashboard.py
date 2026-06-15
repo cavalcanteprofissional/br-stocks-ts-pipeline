@@ -200,6 +200,41 @@ def main():
                 "upper_bound": fc_data.get("upper_bound", []),
             }).round(4)
             st.dataframe(fc_df, use_container_width=True)
+
+            if fc_data.get("rmse") is not None:
+                with st.expander("📊 Métricas de Confiabilidade", expanded=False):
+                    col_m1, col_m2, col_m3 = st.columns(3)
+                    col_m1.metric("RMSE (in-sample)", f"{fc_data['rmse']:.4f}")
+                    col_m2.metric("MAE", f"{fc_data['mae']:.4f}")
+                    if fc_data.get("mape") is not None:
+                        col_m3.metric("MAPE", f"{fc_data['mape']:.2f}%")
+
+                    col_m4, col_m5 = st.columns(2)
+                    lb_badge = "✅ Resíduos ok" if not fc_data.get("has_residual_autocorrelation", True) else "⚠️ Possível má especificação"
+                    col_m4.metric("Ljung-Box", f"p={fc_data['ljung_box_pval']:.4f}", delta=lb_badge)
+                    col_m5.metric("Jarque-Bera", f"p={fc_data['jarque_bera_pval']:.4f}")
+
+                    if fc_data.get("cv_rmse") is not None:
+                        st.metric("RMSE (Walk-Forward CV)", f"{fc_data['cv_rmse']:.4f}")
+
+                    ci_widths = fc_data.get("avg_ci_width", [])
+                    if ci_widths:
+                        avg_ci = [v for v in ci_widths if v is not None]
+                        if avg_ci:
+                            step_labels = [f"Passo {i+1}" for i in range(len(avg_ci))]
+                            ci_fig = go.Figure()
+                            ci_fig.add_trace(go.Scatter(
+                                x=step_labels, y=avg_ci, mode="lines+markers",
+                                name="Largura IC 95%",
+                                line=dict(color="#FF5630", width=2),
+                                marker=dict(size=6),
+                            ))
+                            ci_fig.update_layout(
+                                title="Incerteza por Horizonte",
+                                height=200, margin=dict(l=0, r=0, t=30, b=0),
+                                yaxis_title="Amplitude (R$)",
+                            )
+                            st.plotly_chart(ci_fig, use_container_width=True, key="chart_ci_width")
         else:
             st.info("Forecast não disponível para este ativo.")
 

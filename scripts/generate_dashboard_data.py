@@ -22,7 +22,7 @@ from src.eda import (
     _best_worst_entities,
 )
 from src.decompose import decompose_all as decompose_all_entities
-from src.modeling import check_stationarity, forecast as forecast_model
+from src.modeling import check_stationarity, model_diagnostics, forecast as forecast_model
 from src.outliers import detect_outliers_batch, compute_residual_stats
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -207,11 +207,47 @@ def generate():
             seas_order = model.seasonal_order
             aic = _safe_float(model.aic())
             bic = _safe_float(model.bic())
+
+            diag = model_diagnostics(model, ret)
+            ljung_pval = _safe_float(diag.get("ljung_box_pvalue", 1.0))
+            jb_pval = _safe_float(diag.get("jarque_bera_pval", 1.0))
+            has_resid_auto = diag.get("has_residual_autocorrelation", False)
+
+            preds = model.predict_in_sample()
+            residuals = ret.values - preds
+            rmse = _safe_float(np.sqrt(np.mean(residuals**2)))
+            mae = _safe_float(np.mean(np.abs(residuals)))
+            mape = _safe_float(np.mean(np.abs(residuals / (ret.values + 1e-10))) * 100)
+
+            cv_errors = []
+            for split in [0.7]:
+                cutoff = int(len(ret) * split)
+                train = ret.iloc[:cutoff]
+                test = ret.iloc[cutoff:cutoff + FORECAST_HORIZON]
+                if len(test) < 2:
+                    continue
+                try:
+                    from pmdarima.arima import ARIMA
+                    cv_model = ARIMA(order=order, seasonal_order=seas_order)
+                    cv_model.fit(train)
+                    p = cv_model.predict(n_periods=len(test))
+                    cv_errors.append(float(np.sqrt(np.mean((p - test.values)**2))))
+                except Exception:
+                    pass
+            cv_rmse = _safe_float(np.mean(cv_errors)) if cv_errors else None
+
             models_data[eid] = {
                 "order": list(order),
                 "seasonal_order": list(seas_order),
                 "aic": aic,
                 "bic": bic,
+                "rmse": rmse,
+                "mae": mae,
+                "mape": mape,
+                "cv_rmse": cv_rmse,
+                "ljung_box_pval": ljung_pval,
+                "jarque_bera_pval": jb_pval,
+                "has_residual_autocorrelation": has_resid_auto,
                 "stationarity": {
                     "adf_pval": _safe_float(stat.get("adf_pval")),
                     "kpss_pval": _safe_float(stat.get("kpss_pval")),
@@ -237,28 +273,11 @@ def generate():
         df = entities[eid]
         ret = df["Returns"].dropna() if "Returns" in df.columns else df[value_col].dropna()
         try:
-            stat = check_stationarity(ret)
-            d = stat.get("d_suggested", 0)
-            period = config.seasonal_period
-            has_seasonality = len(ret) >= period * 2
-            model = auto_arima(
-                ret,
-                start_p=0, max_p=3,
-                start_q=0, max_q=3,
-                d=d,
-                seasonal=has_seasonality,
-                m=period if has_seasonality else 1,
-                start_P=0, max_P=1,
-                start_Q=0, max_Q=1,
-                D=None if has_seasonality else 0,
-                trace=False,
-                error_action="ignore",
-                suppress_warnings=True,
-                stepwise=True,
-                information_criterion="aic",
-                max_iter=20,
-                random_state=42,
-            )
+            order = tuple(models_data[eid]["order"])
+            seas_order = tuple(models_data[eid].get("seasonal_order", [0, 0, 0, 0]))
+            from pmdarima.arima import ARIMA
+            model = ARIMA(order=order, seasonal_order=seas_order)
+            model.fit(ret)
             fc = forecast_model(model, FORECAST_HORIZON)
             last_date = df.index[-1]
             fc_dates = pd.date_range(start=last_date, periods=len(fc) + 1, freq=FREQ)[1:]
@@ -274,9 +293,31 @@ def generate():
                 fc_cumsum = np.cumsum(fc["forecast"].values)
                 fc_lower_cumsum = np.cumsum(fc["lower_bound"].values)
                 fc_upper_cumsum = np.cumsum(fc["upper_bound"].values)
-                forecast_dict["price_forecast"] = [_safe_float(last_price * np.exp(v)) for v in fc_cumsum]
-                forecast_dict["price_lower"] = [_safe_float(last_price * np.exp(v)) for v in fc_lower_cumsum]
-                forecast_dict["price_upper"] = [_safe_float(last_price * np.exp(v)) for v in fc_upper_cumsum]
+                price_fc = [_safe_float(last_price * np.exp(v)) for v in fc_cumsum]
+                price_lower = [_safe_float(last_price * np.exp(v)) for v in fc_lower_cumsum]
+                price_upper = [_safe_float(last_price * np.exp(v)) for v in fc_upper_cumsum]
+                forecast_dict["price_forecast"] = price_fc
+                forecast_dict["price_lower"] = price_lower
+                forecast_dict["price_upper"] = price_upper
+                ci_width = [
+                    _safe_float(u - l) if u is not None and l is not None else None
+                    for u, l in zip(price_upper, price_lower)
+                ]
+                forecast_dict["avg_ci_width"] = ci_width
+
+            if eid in models_data:
+                m = models_data[eid]
+                forecast_dict.update({
+                    "rmse": m.get("rmse"),
+                    "mae": m.get("mae"),
+                    "mape": m.get("mape"),
+                    "cv_rmse": m.get("cv_rmse"),
+                    "ljung_box_pval": m.get("ljung_box_pval"),
+                    "jarque_bera_pval": m.get("jarque_bera_pval"),
+                    "has_residual_autocorrelation": m.get("has_residual_autocorrelation"),
+                    "aic": m.get("aic"),
+                    "bic": m.get("bic"),
+                })
 
             forecasts[eid] = forecast_dict
             logger.info(f"  {eid}: forecast OK")

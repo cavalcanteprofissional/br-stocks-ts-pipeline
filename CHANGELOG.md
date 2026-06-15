@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] — 2026-06-14
+
+### Added
+
+- **Métricas de confiabilidade do forecast** — pipeline e dashboard agora
+  computam e exibem:
+  - RMSE/MAE/MAPE in-sample
+  - RMSE walk-forward CV (expanding window 70/30)
+  - Ljung-Box p-value (autocorrelação residual) com badge ✅/⚠️
+  - Jarque-Bera p-value (normalidade residual)
+  - Largura média do IC 95% por horizonte com gráfico de incerteza
+  - Todos exportados via `generate_dashboard_data.py` e exibidos no expander
+    "📊 Métricas de Confiabilidade" na aba Forecast
+
+### Changed
+
+- **Pipeline otimizado** — forecast reusa ordem ARIMA do fitting (evita `auto_arima`
+  duplicado); walk-forward CV usa `ARIMA.fit()` com ordem fixa, não `auto_arima`
+- **`src/dashboard.py`** — novo expander com métricas + gráfico de incerteza
+
 ## [0.3.0] — 2026-06-14
 
 ### Added

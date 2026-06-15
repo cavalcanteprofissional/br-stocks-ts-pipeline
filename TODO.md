@@ -248,3 +248,84 @@ pipeline completa funciona (download + preprocess + exibição).
    | `test_realtime_anomaly` | Botão "Verificar Anomalia" funciona e mostra resultado |
 
 4. **Adicionar ao `pyproject.toml`:** Config do pytest para reconhecer `asyncio_mode = "auto"`
+
+---
+
+## Rodada 7: Métricas de Confiabilidade do Forecast
+
+**Arquivos:** `scripts/generate_dashboard_data.py`, `src/dashboard.py`, `src/modeling.py`
+
+### Objetivo
+
+Atualmente o dashboard exibe AIC, BIC e IC 95% do forecast, mas não há métricas
+de confiabilidade do modelo — o usuário não sabe se o modelo tem resíduos
+autocorrelacionados (má especificação), nem quão precisas são as previsões.
+
+### Plano
+
+| # | Item | Arquivo | Implementação |
+|---|------|---------|---------------|
+| 1 | **Residual diagnostics** | `scripts/generate_dashboard_data.py` | Após `auto_arima`, chamar `model_diagnostics()` (já existe em `src/modeling.py`). Exportar `ljung_box_pval`, `jarque_bera_pval`, `has_residual_autocorrelation` no dicionário do modelo |
+| 2 | **In-sample RMSE/MAE/MAPE** | `scripts/generate_dashboard_data.py` | `preds = model.predict_in_sample()`; comparar com `ret.values`; calcular rmse, mae, mape. Exportar no dict do modelo |
+| 3 | **Walk-forward CV** | `scripts/generate_dashboard_data.py` | Expanding window: 3 cortes (60%, 70%, 80% dos dados). Treinar `auto_arima` em cada janela, forecast horizon, calcular erro. Exportar `cv_rmse`, `cv_mae` |
+| 4 | **Interval width por horizonte** | `scripts/generate_dashboard_data.py` | Média de `price_upper - price_lower` por passo k. Exportar `avg_ci_width` como lista |
+| 5 | **Exibir no Dashboard** | `src/dashboard.py` (aba Forecast) | Novo bloco "📊 Métricas de Confiabilidade" com dataframe + badges |
+| 6 | **Badge de especificação** | `src/dashboard.py` | Se `has_residual_autocorrelation` = False → badge verde "✅ Resíduos ok"; se True → badge vermelho "⚠️ Possível má especificação" |
+| 7 | **Regenerar JSON** | CLI | `poetry run python scripts/generate_dashboard_data.py` |
+
+### Detalhamento Técnico
+
+#### 1. Residual diagnostics (em `generate_dashboard_data.py`)
+```python
+from src.modeling import model_diagnostics
+...
+diag = model_diagnostics(model, ret)
+models_data[eid].update({
+    "ljung_box_pval": _safe_float(diag["ljung_box_pvalue"]),
+    "jarque_bera_pval": _safe_float(diag["jarque_bera_pval"]),
+    "has_residual_autocorrelation": diag["has_residual_autocorrelation"],
+})
+```
+
+#### 2. In-sample metrics
+```python
+preds = model.predict_in_sample()
+residuals = ret.values - preds
+n = len(residuals)
+rmse = float(np.sqrt(np.mean(residuals**2)))
+mae = float(np.mean(np.abs(residuals)))
+mape = float(np.mean(np.abs(residuals / (ret.values + 1e-10)))) * 100
+```
+
+#### 3. Walk-forward CV
+```python
+cv_errors = []
+for split in [0.6, 0.7, 0.8]:
+    cutoff = int(len(ret) * split)
+    train = ret.iloc[:cutoff]
+    test = ret.iloc[cutoff:cutoff + FORECAST_HORIZON]
+    if len(test) < 2:
+        continue
+    m = auto_arima(train, ...)
+    preds = m.predict(n_periods=len(test))
+    cv_errors.append(float(np.sqrt(np.mean((preds - test.values)**2))))
+cv_rmse = float(np.mean(cv_errors)) if cv_errors else None
+```
+
+#### 4. Dashboard display
+```python
+if fc_data and "rmse" in fc_data:
+    with st.expander("📊 Métricas de Confiabilidade", expanded=False):
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric("RMSE (in-sample)", f"{fc_data['rmse']:.4f}")
+        col_m2.metric("MAE", f"{fc_data['mae']:.4f}")
+        col_m3.metric("MAPE", f"{fc_data['mape']:.2f}%")
+        
+        col_m4, col_m5 = st.columns(2)
+        lb_badge = "✅ Resíduos ok" if not fc_data.get("has_residual_autocorrelation", True) else "⚠️ Possível má especificação"
+        col_m4.metric("Ljung-Box", f"p={fc_data['ljung_box_pval']:.4f}", delta=lb_badge)
+        col_m5.metric("Jarque-Bera", f"p={fc_data['jarque_bera_pval']:.4f}")
+        
+        if fc_data.get("cv_rmse"):
+            st.metric("RMSE (Walk-Forward CV)", f"{fc_data['cv_rmse']:.4f}")
+```
