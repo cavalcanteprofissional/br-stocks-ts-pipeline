@@ -273,6 +273,39 @@ autocorrelacionados (má especificação), nem quão precisas são as previsões
 | 6 | **Badge de especificação** | `src/dashboard.py` | Se `has_residual_autocorrelation` = False → badge verde "✅ Resíduos ok"; se True → badge vermelho "⚠️ Possível má especificação" |
 | 7 | **Regenerar JSON** | CLI | `poetry run python scripts/generate_dashboard_data.py` |
 
+---
+
+## Rodada 8: Data Storytelling — Layout Métricas de Confiabilidade
+
+**Arquivo:** `src/dashboard.py:204-237`
+
+### Problemas do Layout Atual
+
+1. **Data dump** — métricas jogadas em colunas sem hierarquia nem contexto
+2. **`delta` abusado** — badge de texto "✅ Resíduos ok" dentro de `metric(delta=...)` confunde
+3. **Sem agrupamento** — RMSE/MAE/MAPE (qualidade do fit) misturado com Ljung-Box (diagnóstico residual)
+4. **Sem progressão narrativa** — não conta uma história (Setup → Conflito → Resolução)
+5. **CV RMSE solto** — `st.metric` avulso sem contexto de comparação com in-sample
+6. **MAPE em coluna quebrada** — grid `col_m1..col_m3` quebra com `if` separado para MAPE
+
+### Plano
+
+| Ordem | Seção | Elementos | Princípio Data Storytelling |
+|-------|-------|-----------|------------------------------|
+| 1 | **Veredito** | `✅ Modelo confiável` / `⚠️ Requer atenção` com caption resumo | Hook — "front-load the key insight" |
+| 2 | **📈 Ajuste do Modelo** | RMSE / MAE / MAPE | Data — "the evidence" |
+| 3 | **🔬 Diagnóstico Resíduos** | Ljung-Box p-valor + badge textual, Jarque-Bera p-valor | Narrative — "the context" |
+| 4 | **🔄 Validação Cruzada** | CV RMSE vs In-sample + delta % + interpretação | Contrast — "compare this/that" |
+| 5 | **📉 Incerteza Horizonte** | Gráfico + anotação Passo 1→52 + caption de alerta | Visuals — "show, don't tell" |
+
+### Mudanças Técnicas
+
+1. **Remover** `metric(delta=lb_badge)` — badge textual vira `st.markdown()` separado
+2. **Adicionar** `st.markdown(f"### {verdict_emoji} {verdict_text}")` no topo com caption
+3. **Agrupar** em `st.columns(2)` aninhados: lado esquerdo="Ajuste", direito="Diagnóstico"
+4. **Comparar CV vs in-sample** em uma linha com delta interpretado ("✅ Modelo generaliza bem")
+5. **Anotar gráfico CI** com largura do primeiro e último passo + % de crescimento
+
 ### Detalhamento Técnico
 
 #### 1. Residual diagnostics (em `generate_dashboard_data.py`)
@@ -326,6 +359,254 @@ if fc_data and "rmse" in fc_data:
         col_m4.metric("Ljung-Box", f"p={fc_data['ljung_box_pval']:.4f}", delta=lb_badge)
         col_m5.metric("Jarque-Bera", f"p={fc_data['jarque_bera_pval']:.4f}")
         
-        if fc_data.get("cv_rmse"):
+         if fc_data.get("cv_rmse"):
             st.metric("RMSE (Walk-Forward CV)", f"{fc_data['cv_rmse']:.4f}")
+
+---
+
+## Rodada 9: Landing Page Scrollytelling com React + Vite
+
+**Novo diretório:** `st/landing/` — SPA React independente
+
+### Objetivo
+
+Landing page scrollytelling que conta a história dos dados do dashboard de forma
+mais sintética e visual, com hero section + scroll reveal + highlights animados.
+
+### Stack
+
+| Camada | Tecnologia | Motivo |
+|--------|------------|--------|
+| Framework | React 18 + Vite | SPA estática, rápida, familiar |
+| Gráficos | Chart.js + react-chartjs-2 | Heatmap, bar, line com bom controle visual |
+| Animações | framer-motion | Scroll reveal, count-up, fade-in |
+| Scroll | Intersection Observer API (nativo) | Gatilho de seções sem lib extra |
+| Dados | Subset JSON (~200KB) vs 3.24MB | Carregamento instantâneo |
+| Deploy | GitHub Pages (gh-pages) | Gratuito, integrado ao repo |
+
+### Estrutura de Diretórios
+
 ```
+st/landing/
+├── public/data/landing_data.json   # Subset extraído por script
+├── src/
+│   ├── components/
+│   │   ├── HeroSection.jsx
+│   │   ├── RankingSection.jsx
+│   │   ├── MarketHealthSection.jsx
+│   │   ├── ForecastSection.jsx
+│   │   ├── CTASection.jsx
+│   │   ├── ScrollReveal.jsx
+│   │   └── charts/
+│   │       ├── RankingBar.jsx
+│   │       ├── CorrelationMatrix.jsx
+│   │       ├── ForecastChart.jsx
+│   │       └── DrawdownChart.jsx
+│   ├── hooks/
+│   │   └── useCountUp.js
+│   ├── data/
+│   │   └── loadData.js
+│   ├── styles/
+│   │   └── globals.css
+│   ├── App.jsx
+│   └── main.jsx
+├── index.html
+├── vite.config.js
+└── package.json
+```
+
+### Seções e Narrativa
+
+| # | Seção | Conteúdo | Elemento-chave |
+|---|-------|----------|----------------|
+| 1 | **Hero** | Headline + subtítulo + count-up PETR4 +1.135% + scroll arrow | Count-up animado do best performer |
+| 2 | **Ranking** | Bar chart horizontal sorted por retorno total + callout best/worst | "PETR4 rendeu 27x mais que ABEV3" |
+| 3a | **Risco** | Drawdown chart + máximo drawdown em destaque | "O maior tombo foi de -XX%" |
+| 3b | **Correlação** | Heatmap matriz de correlação + insight textual | "Bancos andam juntos; commodities seguem ciclo próprio" |
+| 3c | **Sazonalidade** | Monthly returns heatmap + meses destaque | "Meses X e Y são historicamente mais fortes" |
+| 4 | **Forecast** | Line chart preço + IC 95% + badge confiabilidade | "✅ Modelo confiável — Ljung-Box p=0.86" |
+| 5 | **CTA** | "Explore o Dashboard Completo" + link + footer | Botão para Streamlit |
+
+### Técnica de Scrollytelling
+
+- Cada seção ocupa `100vh` com `scroll-snap-type: y mandatory` no container
+- `ScrollReveal.jsx` wrapper → `motion.div` com `whileInView` da framer-motion
+- Números fazem count-up via `useCountUp.js` hook com `requestAnimationFrame`
+- Gráficos fade-in + slide-up ao entrar no viewport
+- Seta animada no hero indica continuidade
+
+### Script de Extração: `scripts/extract_landing_data.py`
+
+Lê `data/dashboard_data.json`, extrai apenas:
+
+```python
+landing_data = {
+    "metadata": { ... },
+    "kpis": { "overall": ..., "entities": ... },
+    "forecast": { ... },        # price_forecast, price_lower/upper, metrics, badge
+    "charts": {
+        "correlation": ...,
+        "monthly_returns": ...,
+        "drawdown": ...,
+    },
+    "series": {                 # apenas Close do best + worst + current entity
+        "best": ..., "worst": ..., "current": ...
+    }
+}
+```
+
+Saída: `landing/public/data/landing_data.json`
+
+### Ordem de Implementação
+
+1. TODO.md — registrar plano (esta tarefa)
+2. `scripts/extract_landing_data.py` — criar e executar
+3. `npm create vite@latest landing -- --template react` — scaffold
+4. `landing/package.json` — adicionar dependências (chart.js, react-chartjs-2, framer-motion)
+5. `landing/src/styles/globals.css` — tema escuro, scroll-snap, tipografia
+6. `landing/src/hooks/useCountUp.js` — hook de animação numérica
+7. `landing/src/components/ScrollReveal.jsx` — wrapper framer-motion
+8. `landing/src/data/loadData.js` — fetch + parse do JSON
+9. `landing/src/components/charts/*.jsx` — 4 componentes de gráfico
+10. `landing/src/components/HeroSection.jsx`
+11. `landing/src/components/RankingSection.jsx`
+12. `landing/src/components/MarketHealthSection.jsx`
+13. `landing/src/components/ForecastSection.jsx`
+14. `landing/src/components/CTASection.jsx`
+15. `landing/src/App.jsx` — montar tudo
+16. `landing/src/main.jsx` — entry point
+17. `landing/vite.config.js` — base path para GitHub Pages
+18. `npm run build` — testar build
+19. CHANGELOG.md — v0.6.0
+```
+
+---
+
+## Rodada 10: Fix — Card "Correlação entre Ativos" vazio
+
+**Arquivos:** `scripts/extract_landing_data.py`, `landing/src/components/charts/CorrelationMatrix.jsx`
+
+### Problema
+
+O card "Correlação entre Ativos" renderiza vazio porque:
+
+1. **Plotly serializa arrays como typed arrays binários** (base64 `{dtype, bdata}`) em vez de listas JSON. O `z` da correlação chega como `{dtype: "f8", bdata: "AAAA..."}` em vez de `[[1.0, 0.8, ...], ...]`.
+2. **Chart.js scatter não funciona para matriz de correlação** — scatter com `type: "category"` não renderiza corretamente; o componente fica em branco.
+
+### Plano
+
+| # | O quê | Arquivo | Mudança |
+|---|-------|---------|---------|
+| 1 | Decodificar typed arrays | `scripts/extract_landing_data.py` | Adicionar `_decode_typed_array()` que converte `{dtype, bdata}` → lista Python via `np.frombuffer` + `base64.b64decode` |
+| 2 | Reshape matriz z | `scripts/extract_landing_data.py` | Se z for flat (81 = 9×9), reshape para `[[...], [...], ...]` |
+| 3 | Substituir Chart.js por HTML grid | `landing/src/components/charts/CorrelationMatrix.jsx` | Remover Chart.js scatter. Renderizar tabela CSS grid com cells coloridas por valor, tooltip com `title` |
+| 4 | Re-extrair dados | CLI | `poetry run python scripts/extract_landing_data.py` |
+| 5 | Rebuild | CLI | `cd landing && npm run build` |
+| 6 | CHANGELOG | `CHANGELOG.md` | v0.6.1
+
+---
+
+## Rodada 11: Fix — JSON inválido (NaN) na landing page
+
+**Arquivo:** `scripts/extract_landing_data.py`
+
+### Problema
+
+A landing page exibe "Erro ao carregar dados — Unexpected token 'N'" porque o JSON
+contém `NaN` literais, que não são válidos no formato JSON.
+
+### Causa
+
+O heatmap `monthly_returns` do Plotly armazena `NaN` na matriz z para meses sem
+dado (meses futuros, combinações ano/mês sem observação). Ao decodificar o typed
+array com `np.frombuffer`, esses NaN são preservados. `json.dump` com
+`allow_nan=True` (default) serializa `float('nan')` como `NaN` literal — que o
+`fetch`/`JSON.parse` no navegador rejeita.
+
+### Plano
+
+| # | Mudança | Local | Detalhes |
+|---|---------|-------|----------|
+| 1 | `_decode_typed_array` | `scripts/extract_landing_data.py` | Substituir NaN por None na lista retornada |
+| 2 | `_sanitize()` | `scripts/extract_landing_data.py` | Função recursiva que percorre dict/list e troca `float('nan')` por `None` — safety net |
+| 3 | Aplicar sanitizer | `scripts/extract_landing_data.py::main()` | `landing = _sanitize(landing)` antes de `json.dump` |
+| 4 | Re-extrair + rebuild | CLI | `poetry run python scripts/extract_landing_data.py && cd landing && npm run build` |
+| 5 | CHANGELOG | `CHANGELOG.md` | v0.6.2
+
+---
+
+## Rodada 12: Fix — Deploy Streamlit Cloud sem dashboard_data.json
+
+**Arquivos:** `.gitignore`, `src/dashboard.py`
+
+### Problema
+
+`data/` está no `.gitignore` → `dashboard_data.json` não sobe para o Streamlit Cloud →
+`FileNotFoundError: data/dashboard_data.json` no deploy.
+
+### Solução Híbrida
+
+| # | Mudança | Arquivo | Detalhes |
+|---|---------|---------|----------|
+| 1 | .gitignore com exceção | `.gitignore` | `data/*` + `!data/dashboard_data.json` — só o JSON escapa |
+| 2 | Fallback automático | `src/dashboard.py::load_dashboard_data()` | Se JSON não existe, roda `generate_dashboard_data.py` com `subprocess` + `st.info` + `st.stop` em caso de erro |
+| 3 | Commit do JSON | git | `git add data/dashboard_data.json` e commitar |
+
+### Fluxo
+
+- Streamlit Cloud: JSON commitado → carrega instantâneo
+- Desenvolvimento limpo: JSON está no repo → carrega instantâneo
+- JSON deletado/corrompido: fallback roda pipeline ~8 min
+
+---
+
+## Rodada 13: Navbar + Footer similar ao landing SANOVA
+
+**Arquivos:** `landing/src/components/Navbar.jsx` (novo), `CTASection.jsx`, `App.jsx`, `globals.css`
+
+### Objetivo
+
+Adicionar header (navbar) e footer semelhantes ao projeto SANOVA de referência.
+
+### Mudanças
+
+| # | O quê | Arquivo | Detalhes |
+|---|-------|---------|----------|
+| 1 | Navbar | `Navbar.jsx` (novo) | Fixed top 64px, `backdrop-filter: blur(12px)`, scroll effect (>100px escurece), hamburger menu mobile, links: Início/Ranking/Saúde/Forecast/Sobre |
+| 2 | Footer | `CTASection.jsx` | Adicionar `<footer>` com copyright + créditos abaixo do botão CTA |
+| 3 | IDs nas sections | `App.jsx` | Adicionar `id="hero"`, `id="ranking"`, `id="saude"`, `id="forecast"`, `id="sobre"` nas sections para anchor navigation |
+| 4 | Import Navbar | `App.jsx` | `<Navbar />` no topo do return |
+| 5 | Estilos | `globals.css` | Adicionar estilos da navbar (.navbar, .nav-inner, .nav-brand, .nav-links, .nav-toggle) e footer inspirados no SANOVA
+
+---
+
+## Rodada 14: About Me Card na section "Sobre"
+
+**Arquivos:** `landing/src/components/AboutCard.jsx` (novo), `CTASection.jsx`, `globals.css`
+
+### Objetivo
+
+Adicionar card "Sobre o Desenvolvedor" na última section com dados do GitHub.
+
+### Dados (GitHub API)
+
+| Campo | Valor |
+|-------|-------|
+| Nome | Lucas Cavalcante dos Santos |
+| Bio | dev dados com py, lm, streamlit, folium, pytorch, opencv |
+| Localização | Fortaleza, Ceará |
+| Avatar | `https://avatars.githubusercontent.com/u/133777385?v=4` |
+| GitHub | `https://github.com/cavalcanteprofissional` |
+| Portfolio | `https://cavalcanteprofissional.github.io/portfolio/` |
+| Email | `cavalcanteprofissional@outlook.com` |
+| LinkedIn | `https://linkedin.com/in/cavalcante-Lucas` |
+| WhatsApp | `https://wa.me/5585996859051` |
+| Repos | 38 · Seguidores: 4 · Following: 18 |
+
+### Mudanças
+
+| # | O quê | Arquivo | Detalhes |
+|---|-------|---------|----------|
+| 1 | AboutCard | `AboutCard.jsx` (novo) | Card com avatar 64px, nome, bio, localização, links sociais (GitHub/Portfolio/LinkedIn/Email), tech tags, badge de estatísticas |
+| 2 | Import | `CTASection.jsx` | Inserir `<AboutCard />` dentro do ScrollReveal do footer, antes de `<site-footer>` |
+| 3 | Estilos | `globals.css` | `.about-card`, `.about-avatar`, `.about-links`, `.about-tech-tags`, `.tech-tag` |

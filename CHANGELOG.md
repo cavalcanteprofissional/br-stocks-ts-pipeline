@@ -2,6 +2,130 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] — 2026-06-15
+
+### Added
+
+- **About Me Card na section "Sobre"** — `landing/src/components/AboutCard.jsx`:
+  - Card escuro (`var(--bg-card)`, `border-radius: var(--radius)`) com foto do
+    desenvolvedor (avatar GitHub 64px, borda accent), nome, bio e localização
+  - Links sociais inline: GitHub, Portfólio, LinkedIn, Email — com ícones SVG
+    e hover accent
+  - Tech tags: py, lm, streamlit, folium, pytorch, opencv — no estilo badge verde
+  - Estatísticas do GitHub: 38 repositórios, 4 seguidores, 18 following
+
+### Changed
+
+- `CTASection.jsx` — importa `<AboutCard />` e o insere dentro do `ScrollReveal`
+  do footer, antes de `<site-footer>`
+
+### Added (CSS)
+
+- `globals.css`: `.about-card`, `.about-card-inner`, `.about-top`, `.about-avatar`,
+  `.about-name`, `.about-bio`, `.about-location`, `.about-links`, `.about-link`,
+  `.about-tech-tags`, `.tech-tag`, `.about-stats`
+- Responsivo: `.about-card` padding reduz para 24px em mobile
+
+## [0.8.0] — 2026-06-15
+
+### Added
+
+- **Navbar fixa inspirada no landing SANOVA** — `landing/src/components/Navbar.jsx`:
+  - Fixed-top 64px com `backdrop-filter: blur(12px)`, borda inferior sutil
+  - Scroll effect: escurece o fundo ap&oacute;s 100px de scroll (classe `.scrolled`)
+  - Hamburger menu mobile com tr&ecirc;s barras animadas (transform rotate 45&deg;)
+  - Links de navega&ccedil;&atilde;o: In&iacute;cio, Ranking, Sa&uacute;de, Forecast, Sobre
+  - Smooth scroll via anchor `#id` para cada section
+
+- **Footer no padr&atilde;o SANOVA** — `CTASection.jsx`:
+  - Tag `<footer>` com `border-top`, `display: flex; justify-content: space-between`
+  - Copyright din&acirc;mico + cr&eacute;ditos lado a lado
+  - Responsivo: empilha verticalmente em mobile
+
+### Changed
+
+- **IDs nas sections** — `App.jsx` + HeroSection, RankingSection, MarketHealthSection,
+  ForecastSection, CTASection receberam `id` individual (`hero`, `ranking`, `saude`,
+  `forecast`, `sobre`) para navega&ccedil;&atilde;o por anchor
+- **Navbar importada** no topo do return em `App.jsx`
+- **HeroSection** — `paddingTop: "var(--nav-height)"` para compensar navbar fixa
+- **CTASection layout** — agora usa `flexDirection: "column"` para empilhar CTA + footer
+
+### Added (CSS)
+
+- `globals.css`: `--nav-height: 64px`
+- Estilos `.navbar`, `.nav-inner`, `.nav-brand`, `.nav-links`, `.nav-toggle`
+- Estilos `.site-footer`, `.footer-inner`
+- Responsivo: nav-links vira slide-down em &le;768px
+
+## [0.7.0] — 2026-06-14
+
+### Fixed
+
+- **Deploy Streamlit Cloud quebrava sem `dashboard_data.json`** — `data/` estava
+  no `.gitignore`, então o JSON não subia para o Cloud, causando `FileNotFoundError`.
+  - `.gitignore`: `data/*` com exceção `!data/dashboard_data.json`
+  - `dashboard_data.json` commitado no repositório
+  - `load_dashboard_data()` ganhou fallback: se o JSON não existir, executa
+    `generate_dashboard_data.py` via `subprocess` com `st.info` e `st.error`
+    em caso de falha
+
+## [0.6.2] — 2026-06-14
+
+### Fixed
+
+- **JSON inválido (NaN) na landing page** — o heatmap `monthly_returns` do Plotly
+  armazena `NaN` na matriz z para meses sem observação. `np.frombuffer()` preservava
+  esses NaN, e `json.dump(allow_nan=True)` os serializava como `NaN` literal — que o
+  navegador rejeita como JSON inválido.
+  - `_decode_typed_array()` agora converte NaN → None na lista retornada
+  - Adicionado `_sanitize()` recursivo que percorre todo o dict e troca
+    `float('nan')` por `None` como safety net antes do `json.dump`
+
+## [0.6.1] — 2026-06-14
+
+### Fixed
+
+- **Card "Correlação entre Ativos" vazio na landing page** — duas causas corrigidas:
+  - `scripts/extract_landing_data.py`: Plotly serializa arrays como typed arrays binários
+    (`{dtype: "f8", bdata: "base64..."}`) em vez de listas JSON. Adicionado
+    `_decode_typed_array()` que converte via `np.frombuffer` + `base64.b64decode`,
+    com reshape automático de matrizes z flat (9×9=81) para lista aninhada.
+  - `landing/src/components/charts/CorrelationMatrix.jsx`: Substituído Chart.js scatter
+    (que não renderizava com `type: "category"`) por tabela CSS Grid com cells coloridas
+    proporcionalmente ao valor, tooltip via atributo `title`, e sem dependências de chart.
+
+## [0.6.0] — 2026-06-14
+
+### Added
+
+- **Landing Page Scrollytelling** (`st/landing/`) — SPA React + Vite independente:
+  - **Hero Section** com headline, subtítulo, count-up animado (+1.135% PETR4) e scroll indicator
+  - **Ranking Section** com bar chart horizontal dos retornos totais e callout best/worst
+  - **Market Health Section** com drawdown chart (best vs worst), matriz de correlação interativa, e análise textual
+  - **Forecast Section** com chart de projeção (IC 95%), badge de confiabilidade do modelo, e métricas RMSE/CV
+  - **CTA Section** com link para o dashboard interativo
+  - Scroll snap sections com scroll reveals animados via framer-motion
+  - Tema escuro, responsivo, font Inter
+
+- **Script de extração** (`scripts/extract_landing_data.py`) — subset de ~95KB do `dashboard_data.json` (3.24MB) contendo apenas KPIs, forecast, correlação e séries do melhor/pior ativo
+
+### Changed
+
+- `TODO.md` — Rodada 9 adicionada com plano detalhado da landing page
+
+## [0.5.0] — 2026-06-14
+
+### Changed
+
+- **Data Storytelling — Layout do expander "📊 Métricas de Confiabilidade"** (`src/dashboard.py`):
+  - Adicionado **veredito** no topo (`✅ Modelo confiável` / `⚠️ Requer atenção`) com caption resumo — hook narrativo
+  - Métricas agrupadas em **2 colunas temáticas**: "📈 Ajuste do Modelo" (RMSE/MAE/MAPE) × "🔬 Diagnóstico dos Resíduos" (Ljung-Box/Jarque-Bera + badge textual)
+  - **Badge textual** movido de `metric(delta=...)` para `st.markdown()` separado — eliminado uso indevido do delta numérico
+  - **Validação Cruzada** com CV RMSE vs In-sample lado a lado, delta percentual interpretado (`✅ Modelo generaliza bem` / `⚠️ Overfitting possível`)
+  - **Gráfico de Incerteza** com anotações de largura no Passo 1 e último passo, crescimento percentual, e caption de alerta
+  - Princípios aplicados: *front-load key insight*, *contrast and compare*, *progressive reveal*, *show don't tell*
+
 ## [0.4.0] — 2026-06-14
 
 ### Added
