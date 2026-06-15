@@ -29,6 +29,10 @@ class Config:
     END_DATE: str = "2025-12-31"
     OUTPUT_DIR: str = "./results"
     CACHE_DIR: str = "./data"
+    LSTM_LOOKBACK: int = 12
+    LSTM_EPOCHS: int = 50
+    LSTM_UNITS: int = 32
+    LSTM_DROPOUT: float = 0.2
 
     @property
     def seasonal_period(self) -> int:

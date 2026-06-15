@@ -5,9 +5,10 @@ import pandas as pd
 from statsmodels.tsa.stattools import adfuller, kpss
 from statsmodels.stats.diagnostic import acorr_ljungbox
 from statsmodels.stats.stattools import jarque_bera
-from pmdarima import auto_arima
 
 from src.config import config
+from src.models import MODEL_REGISTRY
+from src.models.arima_model import ARIMAModel
 
 logger = logging.getLogger(__name__)
 
@@ -46,29 +47,9 @@ def fit_arima(series: pd.Series, seasonal_period: int | None = None, d: int | No
     if len(series) < 24:
         logger.warning(f"Series too short ({len(series)} < 24), may not converge")
 
-    period = seasonal_period or config.seasonal_period
-    has_seasonality = len(series) >= period * 2
-
-    model = auto_arima(
-        series,
-        start_p=0, max_p=5,
-        start_q=0, max_q=5,
-        d=d,
-        start_P=0, max_P=2 if has_seasonality else 0,
-        start_Q=0, max_Q=2 if has_seasonality else 0,
-        D=None if has_seasonality else 0,
-        m=period if has_seasonality else 1,
-        seasonal=has_seasonality,
-        trace=False,
-        error_action="ignore",
-        suppress_warnings=True,
-        stepwise=True,
-        information_criterion="aic",
-        max_iter=50,
-        random_state=42,
-    )
-
-    return model
+    model = ARIMAModel()
+    model.fit(series, seasonal_period=seasonal_period, d=d)
+    return model.model_
 
 
 def fit_all(entities: dict[str, pd.DataFrame]) -> dict[str, dict]:
@@ -85,18 +66,18 @@ def fit_all(entities: dict[str, pd.DataFrame]) -> dict[str, dict]:
 
         stationarity = check_stationarity(series)
         d = stationarity["d_suggested"]
-        logger.info(f"{entity_id}: d={d}, ADF p={stationarity['adf_pval']:.4f}, KPSS p={stationarity['kpss_pval']:.4f}")
 
-        model = fit_arima(series, d=d)
-        diagnostics = model_diagnostics(model, series)
+        model_obj = ARIMAModel()
+        model_obj.fit(series, d=d)
+        diag = model_diagnostics(model_obj.model_, series)
 
         results[entity_id] = {
-            "model": model,
+            "model": model_obj.model_,
             "stationarity": stationarity,
-            "diagnostics": diagnostics,
-            "aic": model.aic(),
-            "bic": model.bic(),
-            "order": (model.order, model.seasonal_order),
+            "diagnostics": diag,
+            "aic": model_obj.aic_,
+            "bic": model_obj.bic_,
+            "order": (model_obj.order_, model_obj.seasonal_order_),
         }
 
     return results

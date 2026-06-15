@@ -418,6 +418,29 @@ files = [
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
+name = "cmdstanpy"
+version = "1.3.0"
+description = "Python interface to CmdStan"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "cmdstanpy-1.3.0-py3-none-any.whl", hash = "sha256:67d83fbb823948c3ca8a84912359d6c0a5c616a62025526dba5f43a1d970bc52"},
+    {file = "cmdstanpy-1.3.0.tar.gz", hash = "sha256:60b10d110993bd8345735994786b2b17782fdc5530a6adbc0cd8ec836d82c2b9"},
+]
+
+[package.dependencies]
+numpy = ">=1.21"
+pandas = "*"
+stanio = ">=0.4.0,<2.0.0"
+tqdm = "*"
+
+[package.extras]
+all = ["polars (>=1.8.2)", "xarray"]
+docs = ["ipykernel (<7)", "ipython", "ipywidgets", "matplotlib", "nbsphinx", "pydata-sphinx-theme (<0.9)", "sphinx (>5,<6)", "sphinx-copybutton", "xarray"]
+test = ["flake8", "mypy", "polars (>=1.8.2)", "pylint", "pytest", "pytest-cov", "pytest-order", "xarray"]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 description = "Cross-platform colored terminal text."
@@ -843,6 +866,21 @@ files = [
 ]
 
 [[package]]
+name = "holidays"
+version = "0.98"
+description = "Open World Holidays Framework"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "holidays-0.98-py3-none-any.whl", hash = "sha256:65c9ba3402f1d10cc715af0510cdc847e60d8854df640515d546748ca4a24e60"},
+    {file = "holidays-0.98.tar.gz", hash = "sha256:09b078a4695d53a35ea01517b331942f3232b3b7e3877f74f6d5227adbedc76e"},
+]
+
+[package.dependencies]
+python-dateutil = ">=2.9.0.post0,<3"
+
+[[package]]
 name = "httptools"
 version = "0.8.0"
 description = "A collection of framework independent HTTP protocol utils."
@@ -916,6 +954,26 @@ files = [
 
 [package.extras]
 all = ["mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2)"]
+
+[[package]]
+name = "importlib-resources"
+version = "7.1.0"
+description = "Read resources from Python packages"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "importlib_resources-7.1.0-py3-none-any.whl", hash = "sha256:1bd7b48b4088eddb2cd16382150bb515af0bd2c70128194392725f82ad2c96a1"},
+    {file = "importlib_resources-7.1.0.tar.gz", hash = "sha256:0722d4c6212489c530f2a145a34c0a7a3b4721bc96a15fada5930e2a0b760708"},
+]
+
+[package.extras]
+check = ["pytest-checkdocs (>=2.14)", "pytest-ruff (>=0.2.1) ; sys_platform != \"cygwin\""]
+cover = ["pytest-cov"]
+doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
+enabler = ["pytest-enabler (>=3.4)"]
+test = ["jaraco.test (>=5.4)", "pytest (>=6,!=8.1.*)", "zipp (>=3.17)"]
+type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 
 [[package]]
 name = "iniconfig"
@@ -1869,6 +1927,35 @@ dev = ["patsy", "readme_renderer", "twine (>=1.13.0)", "wheel"]
 test = ["matplotlib (>=2.2.0)", "pytest", "pytest-benchmark", "pytest-mpl"]
 
 [[package]]
+name = "prophet"
+version = "1.3.0"
+description = "Automatic Forecasting Procedure"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "prophet-1.3.0-py3-none-macosx_10_11_x86_64.whl", hash = "sha256:fe70571cbd051a8e1f6c5ff3a53215a6287820b7f2991df056406eefb4a615a7"},
+    {file = "prophet-1.3.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:1f51922a0db9bae8af3e46e33b094487f1be0c96a373b47ec3ad041020adacd0"},
+    {file = "prophet-1.3.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:b65f189002a406413c58a28af40b6f2b240bba1ebf1158d204c46ebc570cd3c0"},
+    {file = "prophet-1.3.0-py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ed25f79e554d928b123cbf4f5a8a4e33bb003c7e26dcc2c8352e900f11f6b770"},
+    {file = "prophet-1.3.0-py3-none-win_amd64.whl", hash = "sha256:6790f9f06cc9e76d2f21c501f5889cf37f75917fba6859e196889dfde4bfec3b"},
+    {file = "prophet-1.3.0.tar.gz", hash = "sha256:7ec252e898199a1965ca10db3ca625a4ec75e4e6f738d2b4108fe603666a9ef0"},
+]
+
+[package.dependencies]
+cmdstanpy = ">=1.0.4"
+holidays = ">=0.25,<1"
+importlib_resources = "*"
+matplotlib = ">=2.0.0"
+numpy = ">=1.15.4"
+pandas = ">=1.0.4"
+tqdm = ">=4.36.1"
+
+[package.extras]
+dev = ["jupyterlab", "nbconvert", "plotly", "pytest", "setuptools (>=64)", "wheel"]
+parallel = ["dask[dataframe]", "distributed"]
+
+[[package]]
 name = "protobuf"
 version = "7.35.1"
 description = ""
@@ -2801,6 +2888,25 @@ pymysql = ["pymysql"]
 sqlcipher = ["sqlcipher3_binary"]
 
 [[package]]
+name = "stanio"
+version = "0.5.1"
+description = "Utilities for preparing Stan inputs and processing Stan outputs"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "stanio-0.5.1-py3-none-any.whl", hash = "sha256:99ad590daa5834681245c2b651716ec2e06223853661ada21430c621521c849f"},
+    {file = "stanio-0.5.1.tar.gz", hash = "sha256:348d52f947dec431e118f4b601c4c5296929b86401d4d4dd5aa9373b0d4ae4ac"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[package.extras]
+test = ["pandas", "pytest", "pytest-cov"]
+ujson = ["ujson (>=5.5.0)"]
+
+[[package]]
 name = "starlette"
 version = "1.3.1"
 description = "The little ASGI library that shines."
@@ -2975,6 +3081,28 @@ files = [
     {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
     {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
 ]
+
+[[package]]
+name = "tqdm"
+version = "4.68.2"
+description = "Fast, Extensible Progress Meter"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "tqdm-4.68.2-py3-none-any.whl", hash = "sha256:d4240441fb5353290b87d6a85968c9decc131a99b8c7faa28269d829de669ede"},
+    {file = "tqdm-4.68.2.tar.gz", hash = "sha256:89c230e8dbc67c7615c142487111222f878c77427ea09549960f62389e258add"},
+]
+
+[package.dependencies]
+colorama = {version = "*", markers = "platform_system == \"Windows\""}
+
+[package.extras]
+dev = ["nbval", "pytest (>=6)", "pytest-asyncio (>=0.24)", "pytest-cov", "pytest-timeout"]
+discord = ["envwrap", "requests"]
+notebook = ["ipywidgets (>=6)"]
+slack = ["envwrap", "slack-sdk"]
+telegram = ["envwrap", "requests"]
 
 [[package]]
 name = "typing-extensions"
@@ -3185,4 +3313,4 @@ repair = ["scipy (>=1.6.3)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "d31fd999a575f7e491548ce5f72d281b8c8e9813cbdefc7b466670cd62d32447"
+content-hash = "d363f98e28b0b200768c1a4622f30fa20805a259cdd5d089e12affa110fdcafe"

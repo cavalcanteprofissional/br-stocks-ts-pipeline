@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] — 2026-06-15
+
+### Added
+
+- **Comparação Multi-Modelo (Rodada 15)** — ARIMA/SARIMA, Prophet e LSTM (PyTorch):
+  - `src/models/` — novo pacote com `BaseModel` (ABC), `ARIMAModel`, `ProphetModel`, `LSTMModel`
+  - `src/models/base.py` — `fit()`, `predict()`, `predict_in_sample()`, `cross_validate()`, `compute_metrics()`, `timed_fit()`
+  - `src/models/arima_model.py` — wrapper auto_arima com seasonality, refit reusing order
+  - `src/models/prophet_model.py` — wrapper Meta Prophet com changepoint prior
+  - `src/models/lstm_model.py` — LSTM PyTorch, lookback=12, 50 epochs, dropout=0.2, num_layers=2
+  - `src/models/cross_validate.py` — `walk_forward_cv()` com `TimeSeriesSplit(n_splits=5)`
+  - `src/models/__init__.py` — `MODEL_REGISTRY` com lazy import do LSTM (fallback se torch ausente)
+  - `src/config.py` — `LSTM_LOOKBACK`, `LSTM_EPOCHS`, `LSTM_UNITS`, `LSTM_DROPOUT`
+  - `pyproject.toml` — adicionado `prophet`
+  - JSON: estrutura aninhada `forecast[eid][modelo]` + `model_comparison[eid]{best_model, metrics}`
+  - Dashboard: nova aba **"Comparação"** com tabela de métricas, gráfico de barras, forecast sobreposto, destaque no melhor modelo
+
+- **SMAPE + R²** (`src/models/base.py:50-63`):
+  - `compute_metrics()` agora retorna `smape` (Symmetric MAPE) e `r2` (R-squared)
+  - Dashboard: exibe SMAPE e R² na tabela e gráfico da aba "Comparação"
+  - Dashboard: `st.warning()` explicando por que MAPE >100% em retornos logarítmicos e recomendando SMAPE
+
+### Changed
+
+- `src/modeling.py` — refatorado para delegar fit a `ARIMAModel`; mantém `check_stationarity()`, `model_diagnostics()`
+- `scripts/generate_dashboard_data.py` — itera `MODEL_TYPES = ["ARIMA", "Prophet", "LSTM"]` via `MODEL_REGISTRY`
+- `src/dashboard.py` — detecta automaticamente formato antigo (flat) vs novo (nested) do JSON
+
+### Technical Notes
+
+- PyTorch 2.12.0 instalado via pip (não via Poetry) devido a conflito com `triton`
+- Pipeline ~35 min para 9 tickers × 3 modelos (ARIMA ~8 min, Prophet ~30s, LSTM ~5s por ticker)
+- JSON 3.32 MB com estrutura aninhada
+- Prophet venceu em 6/9 tickers (RMSE), ARIMA em 2/9, LSTM consistentemente 3º
+
 ## [0.9.0] — 2026-06-15
 
 ### Added

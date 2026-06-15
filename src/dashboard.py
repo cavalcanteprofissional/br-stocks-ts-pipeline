@@ -64,12 +64,17 @@ def main():
     charts = data["charts"]
     decomp_data = data["decomposition"].get(entity, {})
     model_data = data["models"].get(entity, {})
-    fc_data = data["forecast"].get(entity, {})
+    fc_models = data["forecast"].get(entity, {})
+    _old_flat = "forecast" in fc_models or "dates" in fc_models
+    if _old_flat:
+        fc_models = {"ARIMA": fc_models}
+    fc_data = fc_models.get("ARIMA", {})
     out_data = data["outliers"].get(entity, {})
     res_stats = data["residual_stats"].get(entity, {})
+    comp_data = data.get("model_comparison", {}).get(entity, {})
 
-    tab_overview, tab_eda, tab_decomp, tab_model, tab_forecast, tab_anomalies = st.tabs([
-        "Overview", "EDA", "Decomposição", "Modelo", "Forecast", "Anomalias",
+    tab_overview, tab_eda, tab_decomp, tab_model, tab_forecast, tab_comparison, tab_anomalies = st.tabs([
+        "Overview", "EDA", "Decomposição", "Modelo", "Forecast", "Comparação", "Anomalias",
     ])
 
     with tab_overview:
@@ -160,10 +165,10 @@ def main():
         else:
             st.info("Modelo não disponível para este ativo.")
 
-        comp = data.get("model_comparison", [])
-        if len(comp) > 1:
-            st.subheader("Comparação entre Modelos")
-            comp_df = pd.DataFrame(comp)
+        comp_ranking = data.get("model_comparison_ranking", [])
+        if len(comp_ranking) > 1:
+            st.subheader("Comparação entre Modelos (AIC)")
+            comp_df = pd.DataFrame(comp_ranking)
             fig_comp = go.Figure()
             fig_comp.add_trace(go.Bar(
                 x=comp_df["aic"], y=comp_df["entity"],
@@ -300,6 +305,122 @@ def main():
                                 st.caption("✅ Incerteza estável ao longo do horizonte")
         else:
             st.info("Forecast não disponível para este ativo.")
+
+    with tab_comparison:
+        if _old_flat:
+            st.info("Disponível apenas após regenerar os dados com o pipeline mais recente.")
+        elif not fc_models or len(fc_models) < 1:
+            st.info("Comparação não disponível para este ativo.")
+        else:
+            model_names = sorted(fc_models.keys())
+
+            st.subheader("Comparação entre Modelos — " + entity)
+
+            metrics_keys = ["rmse", "mae", "mape", "smape", "r2", "cv_rmse", "training_time_s"]
+            metric_labels = {"rmse": "RMSE", "mae": "MAE", "mape": "MAPE (%)",
+                             "smape": "SMAPE (%)", "r2": "R²",
+                             "cv_rmse": "CV RMSE", "training_time_s": "Tempo (s)"}
+            metric_decimal = {"rmse": 4, "mae": 4, "mape": 2, "smape": 2, "r2": 4, "cv_rmse": 4, "training_time_s": 1}
+
+            comp_rows = []
+            for m in model_names:
+                fc_m = fc_models.get(m, {})
+                row = {"Modelo": m}
+                for k in metrics_keys:
+                    v = fc_m.get(k)
+                    if v is None:
+                        row[metric_labels[k]] = "—"
+                    elif k == "training_time_s":
+                        row[metric_labels[k]] = f"{v:.1f}"
+                    elif k == "r2":
+                        row[metric_labels[k]] = f"{v:.4f}"
+                    elif k in ("mape", "smape"):
+                        row[metric_labels[k]] = f"{v:.2f}"
+                    else:
+                        row[metric_labels[k]] = f"{v:.4f}"
+                comp_rows.append(row)
+
+            comp_df = pd.DataFrame(comp_rows)
+            best_model = comp_data.get("best_model", model_names[0]) if comp_data else model_names[0]
+
+            def _highlight_best(val):
+                return "background-color: rgba(14, 159, 110, 0.15); color: var(--green-light, #34d399); font-weight: 600"
+
+            def _style_row(row):
+                is_best = row["Modelo"] == best_model
+                return [_highlight_best(v) if is_best else "" for v in row]
+
+            styled = comp_df.style.apply(_style_row, axis=1)
+            st.dataframe(styled, use_container_width=True, hide_index=True)
+
+            if best_model:
+                st.success(f"✅ **Melhor modelo (menor RMSE): {best_model}**")
+
+            mape_warn = any(
+                fc_models.get(m, {}).get("mape") is not None and fc_models[m]["mape"] > 100
+                for m in model_names
+            )
+            if mape_warn:
+                st.warning(
+                    "⚠️ **MAPE elevado (>100%)** — o MAPE é calculado sobre retornos logarítmicos "
+                    "(valores tipicamente entre -0.05 e 0.05), onde a divisão por valores "
+                    "próximos de zero inflaciona a métrica. "
+                    "**SMAPE** (Symmetric MAPE) resolve esse problema usando denominador "
+                    "simétrico e é mais confiável para séries com retornos."
+                )
+
+            st.divider()
+
+            numeric_vals = {}
+            for k in ["rmse", "mae", "cv_rmse", "smape", "r2"]:
+                vals = {m: fc_models.get(m, {}).get(k) for m in model_names}
+                if any(v is not None for v in vals.values()):
+                    numeric_vals[k] = vals
+
+            if numeric_vals:
+                fig_comp = go.Figure()
+                for k, vals in numeric_vals.items():
+                    clean = {m: v for m, v in vals.items() if v is not None}
+                    decimals = metric_decimal.get(k, 4)
+                    fig_comp.add_trace(go.Bar(
+                        name=metric_labels.get(k, k),
+                        x=list(clean.keys()),
+                        y=list(clean.values()),
+                        text=[f"{v:.{decimals}f}" for v in clean.values()],
+                        textposition="outside",
+                    ))
+                fig_comp.update_layout(
+                    title="Métricas por Modelo",
+                    barmode="group",
+                    height=400,
+                    yaxis_title="Valor",
+                )
+                st.plotly_chart(fig_comp, use_container_width=True, key="chart_model_compare")
+
+            st.subheader("Forecast Sobreposto")
+            series_info = entities_series.get(entity, {})
+            hist_dates = [pd.Timestamp(d) for d in series_info.get("dates", [])]
+            hist_close = series_info.get("Close", [])
+
+            fig_overlay = go.Figure()
+            fig_overlay.add_trace(go.Scatter(
+                x=hist_dates, y=hist_close, mode="lines",
+                name="Histórico", line=dict(color="#1A56DB", width=2),
+            ))
+
+            colors = {"ARIMA": "#E02424", "Prophet": "#0E9F6E", "LSTM": "#F59E0B"}
+            for m in model_names:
+                fc_m = fc_models.get(m, {})
+                fc_dates = [pd.Timestamp(d) for d in fc_m.get("dates", [])]
+                price_fc = fc_m.get("price_forecast", [])
+                if price_fc and fc_dates:
+                    fig_overlay.add_trace(go.Scatter(
+                        x=fc_dates, y=price_fc, mode="lines+markers",
+                        name=m, line=dict(color=colors.get(m, "#7E3AF2"), width=2, dash="dash"),
+                    ))
+
+            fig_overlay.update_layout(title="Projeção — Todos os Modelos", height=400)
+            st.plotly_chart(fig_overlay, use_container_width=True, key="chart_forecast_overlay")
 
     with tab_anomalies:
         st.subheader("Outliers em Lote")
