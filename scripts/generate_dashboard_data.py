@@ -240,6 +240,9 @@ def generate():
                 price_data = _forecast_to_price(fc_df, last_price, df)
                 metrics = model_obj.compute_metrics(ret)
 
+                in_sample_preds = model_obj.predict_in_sample(ret)
+                residuals = ret.values[-len(in_sample_preds):] - in_sample_preds
+
                 cv_rmse = model_obj.cross_validate(ret, FORECAST_HORIZON)
 
                 forecast_entry = {
@@ -251,6 +254,8 @@ def generate():
                     **metrics,
                     "cv_rmse": cv_rmse,
                     "training_time_s": round(model_obj.fit_time_s_, 2),
+                    "residuals": [_safe_float(v) for v in residuals],
+                    "residual_dates": [d.isoformat() if isinstance(d, (pd.Timestamp, datetime)) else str(d) for d in ret.index[-len(residuals):]],
                 }
 
                 if model_name == "ARIMA":

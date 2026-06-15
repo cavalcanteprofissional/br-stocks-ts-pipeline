@@ -434,7 +434,7 @@ p {
 .about-badge {
   display: block;
   margin: 20px auto 0;
-  max-width: 140px;
+  max-width: 100px;
   height: auto;
   opacity: 0.6;
   transition: opacity 0.2s;

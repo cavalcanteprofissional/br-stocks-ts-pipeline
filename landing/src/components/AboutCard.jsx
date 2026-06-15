@@ -80,7 +80,9 @@ export default function AboutCard() {
           38 reposit&oacute;rios &middot; 4 seguidores &middot; 18 following
         </div>
 
-        <img src={logo} alt="assinatura" className="about-badge" />
+        <a href="https://github.com/cavalcanteprofissional" target="_blank" rel="noopener noreferrer">
+          <img src={logo} alt="assinatura" className="about-badge" />
+        </a>
       </div>
     </div>
   );

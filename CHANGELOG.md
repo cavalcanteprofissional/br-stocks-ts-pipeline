@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] — 2026-06-15
+
+### Added
+
+- **Gráficos de Resíduos dos Modelos** — dentro do expander "📊 Métricas de
+  Confiabilidade" na aba Forecast:
+  - **Série Temporal** — resíduos ao longo do tempo com linha de referência
+    em zero, permitindo identificar padrões sazonais não capturados
+  - **Histograma + KDE** — distribuição dos resíduos com curva normal
+    sobreposta, média e desvio padrão anotados
+  - **Q-Q Plot** — quantis amostrais vs quantis teóricos normais, com linha
+    de referência para avaliar normalidade dos resíduos
+  - Dados exportados via `residuals` e `residual_dates` no JSON (~4.31 MB)
+
+### Changed
+
+- `scripts/generate_dashboard_data.py` — `predict_in_sample()` + resíduos
+  armazenados no `forecast_entry` de cada modelo
+- `src/dashboard.py` — 3 novas abas aninhadas dentro do expander de
+  Métricas de Confiabilidade: "Série Temporal", "Histograma", "Q-Q Plot"
+
 ## [0.10.0] — 2026-06-15
 
 ### Added

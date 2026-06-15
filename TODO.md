@@ -53,3 +53,4 @@
 | Média | CI/CD com GitHub Actions | Rodar pipeline + testes + deploy automático |
 | Média | Monitor de integração contínua | AnomalyMonitor em produção com alertas |
 | Alta | Cache incremental do JSON | Só refazer modelos se dados mudaram (~8 min → ~30s)
+| Média | Gráficos de resíduos dos modelos | Resíduos ao longo do tempo, histograma + KDE, Q-Q plot. Exportar array de resíduos no JSON (`forecast[eid][modelo].residuals`). Adicionar subseção no expander "📊 Métricas de Confiabilidade" na aba Forecast do dashboard.

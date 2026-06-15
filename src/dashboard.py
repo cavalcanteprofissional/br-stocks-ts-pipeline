@@ -303,6 +303,85 @@ def main():
                                 st.caption("⚠️ Incerteza cresce rápido com o horizonte — use projeções longas com cautela")
                             else:
                                 st.caption("✅ Incerteza estável ao longo do horizonte")
+
+                    residuals = fc_data.get("residuals", [])
+                    residual_dates = fc_data.get("residual_dates", [])
+                    if residuals and len(residuals) > 5:
+                        st.divider()
+                        st.markdown("**📉 Gráficos de Resíduos**")
+
+                        tab_res_time, tab_res_hist, tab_res_qq = st.tabs([
+                            "Série Temporal", "Histograma", "Q-Q Plot",
+                        ])
+
+                        with tab_res_time:
+                            res_dates_parsed = [pd.Timestamp(d) for d in residual_dates[-len(residuals):]]
+                            res_fig = go.Figure()
+                            res_fig.add_trace(go.Scatter(
+                                x=res_dates_parsed, y=residuals,
+                                mode="lines", name="Resíduos",
+                                line=dict(color="#1A56DB", width=1.5),
+                            ))
+                            res_fig.add_hline(y=0, line_dash="dash", line_color="#E02424", opacity=0.6)
+                            res_fig.update_layout(
+                                title="Resíduos ao Longo do Tempo",
+                                height=250, margin=dict(l=0, r=0, t=30, b=0),
+                                yaxis_title="Resíduo",
+                                xaxis_title="Data",
+                            )
+                            st.plotly_chart(res_fig, use_container_width=True, key="chart_res_time")
+
+                        with tab_res_hist:
+                            bins = int(np.clip(len(residuals) // 10, 8, 40))
+                            hist, bin_edges = np.histogram(residuals, bins=bins, density=True)
+                            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+                            mu_res = float(np.mean(residuals))
+                            sigma_res = float(np.std(residuals))
+                            x_grid = np.linspace(min(residuals), max(residuals), 200)
+                            kde = (1 / (sigma_res * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x_grid - mu_res) / sigma_res) ** 2)
+
+                            hist_fig = go.Figure()
+                            hist_fig.add_trace(go.Bar(
+                                x=bin_centers, y=hist, width=bin_edges[1] - bin_edges[0],
+                                name="Densidade", marker_color="#1A56DB", opacity=0.6,
+                            ))
+                            hist_fig.add_trace(go.Scatter(
+                                x=x_grid, y=kde, mode="lines",
+                                name="KDE (Normal)", line=dict(color="#E02424", width=2),
+                            ))
+                            hist_fig.add_vline(x=0, line_dash="dash", line_color="#34d399", opacity=0.5)
+                            hist_fig.update_layout(
+                                title=f"Distribuição dos Resíduos  ·  μ={mu_res:.4f}  σ={sigma_res:.4f}",
+                                height=250, margin=dict(l=0, r=0, t=30, b=0),
+                                yaxis_title="Densidade",
+                                xaxis_title="Resíduo",
+                                bargap=0.02,
+                            )
+                            st.plotly_chart(hist_fig, use_container_width=True, key="chart_res_hist")
+
+                        with tab_res_qq:
+                            sorted_res = np.sort(residuals)
+                            n_res = len(sorted_res)
+                            theoretical = np.sort(np.random.default_rng(42).normal(0, 1, n_res))
+                            qq_fig = go.Figure()
+                            qq_fig.add_trace(go.Scatter(
+                                x=theoretical, y=sorted_res, mode="markers",
+                                name="Q-Q", marker=dict(color="#1A56DB", size=4, opacity=0.6),
+                            ))
+                            fit_line = np.polyfit(theoretical, sorted_res, 1)
+                            fit_fn = np.poly1d(fit_line)
+                            qq_fig.add_trace(go.Scatter(
+                                x=theoretical, y=fit_fn(theoretical), mode="lines",
+                                name="Referência Normal", line=dict(color="#E02424", width=1.5, dash="dash"),
+                            ))
+                            qq_fig.update_layout(
+                                title="Q-Q Plot — Resíduos vs Normal",
+                                height=250, margin=dict(l=0, r=0, t=30, b=0),
+                                yaxis_title="Quantis Amostrais",
+                                xaxis_title="Quantis Teóricos (Normal)",
+                            )
+                            st.plotly_chart(qq_fig, use_container_width=True, key="chart_res_qq")
         else:
             st.info("Forecast não disponível para este ativo.")
 
