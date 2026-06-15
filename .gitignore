@@ -28,6 +28,8 @@ results/
 .DS_Store
 Thumbs.db
 nul
+debug_*
+*.png
 
 # Project docs
 plano_implementacao.md
