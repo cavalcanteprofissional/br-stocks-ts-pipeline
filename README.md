@@ -2,26 +2,14 @@
 
 **Pipeline automatizado** de análise de séries temporais para ações brasileiras: forecasting com ARIMA/SARIMA, detecção de anomalias, dashboard interativo e landing page scrollytelling.
 
-```text
-┌─────────────────────────────────────────────────────┐
-│                                                     │
-│  📊 Dashboard        🎬 Landing Page               │
-│  (Streamlit Cloud)   (GitHub Pages)                 │
-│       │                    │                         │
-│       └─────┬──────────────┘                         │
-│             │                                        │
-│     ┌───────▼────────┐                              │
-│     │  dashboard_data.json  │  ← pré-computado      │
-│     │  (~3.2 MB)           │                        │
-│     └──────────────────────┘                        │
-│             │                                        │
-│  ┌──────────▼──────────┐                            │
-│  │  Gera Pipeline       │  ← offline, ~8 min        │
-│  │  ingest → ARIMA →    │                            │
-│  │  forecast → outliers  │                            │
-│  └─────────────────────┘                            │
-│                                                     │
-└─────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["📡 Yahoo Finance<br/>(yfinance)"] --> B["⚙️ Pipeline offline<br/>~8 min"]
+    B --> C["📦 dashboard_data.json<br/>~3.2 MB"]
+    C --> D["📊 Dashboard Streamlit<br/>(<2s load)"]
+    C --> E["🎬 Landing Page<br/>(React + Vite)"]
+    D --> F["Streamlit Cloud"]
+    E --> G["GitHub Pages"]
 ```
 
 ---
