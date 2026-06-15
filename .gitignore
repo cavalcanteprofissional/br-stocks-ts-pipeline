@@ -14,7 +14,8 @@ venv/
 .venv/
 
 # Data & Cache
-data/
+data/*
+!data/dashboard_data.json
 *.parquet
 
 # Output
