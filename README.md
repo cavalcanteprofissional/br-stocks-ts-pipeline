@@ -5,7 +5,7 @@
 <h1 align="center">BR Stocks — Análise de Séries Temporais</h1>
 
 <p align="center">
-  <b>Pipeline automatizado</b> de forecasting, anomalias e visualização<br />
+  <b>Pipeline automatizado</b> de forecasting multi-modelo, anomalias e visualização<br />
   para o mercado de ações brasileiro.
 </p>
 
@@ -19,6 +19,9 @@
   <a href="https://github.com/cavalcanteprofissional/br-stocks-ts-pipeline/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License" />
   </a>
+  <a href="https://github.com/cavalcanteprofissional/br-stocks-ts-pipeline/releases">
+    <img src="https://img.shields.io/badge/Version-0.11.0-blue?style=flat-square" alt="Version" />
+  </a>
 </p>
 
 ---
@@ -27,32 +30,35 @@
 
 ```mermaid
 flowchart TD
-    A["📡 Yahoo Finance<br/>(yfinance)"] --> B["⚙️ Pipeline offline<br/>~8 min"]
-    B --> C["📦 dashboard_data.json<br/>~3.2 MB"]
+    A["📡 Yahoo Finance<br/>(yfinance)"] --> B["⚙️ Pipeline offline<br/>ARIMA + Prophet + LSTM<br/>~35 min"]
+    B --> C["📦 dashboard_data.json<br/>~4.31 MB"]
     C --> D["📊 Dashboard Streamlit<br/>(<2s load)"]
     C --> E["🎬 Landing Page<br/>(React + Vite)"]
-    D --> F["Streamlit Cloud"]
-    E --> G["GitHub Pages"]
+    C --> F["📈 Gráficos de Resíduos<br/>Série + Histograma + Q-Q"]
+    D --> G["Streamlit Cloud"]
+    E --> H["GitHub Pages"]
 ```
 
 ---
 
 ## Sobre
 
-Este projeto nasceu para **automatizar a análise de séries temporais** do mercado de ações brasileiro — sem depender de APIs caras, sem spinners no dashboard, sem esperar ARIMA rodar em tempo real.
+Pipeline automatizado de séries temporais que baixa dados do Yahoo Finance, treina **3 modelos de forecasting** (ARIMA/SARIMA, Prophet e LSTM) e gera um JSON pré-computado para carregamento instantâneo no dashboard — sem chamadas de API, sem spinners, sem modelos rodando em runtime.
 
 | Etapa | Descrição |
 |-------|-----------|
-| **Pipeline offline** | Baixa dados do Yahoo Finance, processa, ajusta ARIMA/SARIMA, gera forecasts e detecta anomalias |
-| **Serialização** | Tudo vira um JSON de ~3.2 MB — o dashboard só lê esse arquivo |
-| **Dashboard instantâneo** | Abre em <2s — sem chamadas de API, sem spinner, sem ARIMA em runtime |
+| **Pipeline offline** | Baixa dados, pré-processa, treina ARIMA + Prophet + LSTM, gera forecasts com IC 95%, detecta anomalias e computa métricas de confiabilidade |
+| **Comparação Multi-Modelo** | RMSE, SMAPE, R², MAE, MAPE side-by-side; walk-forward CV 5 folds; ranking visual do melhor modelo por ticker |
+| **Gráficos de Resíduos** | Série temporal, histograma + KDE e Q-Q plot no expander de Métricas de Confiabilidade |
+| **Serialização** | Tudo vira um JSON de ~4.31 MB — o dashboard só lê esse arquivo |
+| **Dashboard instantâneo** | Abre em <2s — sem chamadas de API, sem spinner, sem modelos em runtime |
 | **Landing page** | Scrollytelling com React + Vite para apresentar os insights de forma visual |
 
 ### Stack
 
 | Camada | Tecnologia |
 |--------|-----------|
-| Pipeline | Python 3.14, pandas 3.0+, statsmodels, pmdarima |
+| Pipeline | Python 3.11+, pandas 3.0+, statsmodels, pmdarima, Prophet 1.3+, PyTorch 2.12 |
 | Dashboard | Streamlit 1.58+, Plotly |
 | Landing Page | React 18, Vite, Chart.js, framer-motion |
 | Dados | Yahoo Finance (`yfinance`) |
@@ -96,14 +102,28 @@ Os dados vêm da **Yahoo Finance** via biblioteca [`yfinance`](https://github.co
 
 | Etapa | Descrição |
 |-------|-----------|
-| **Ingestão** | CSV bruto por ticker em `data/` |
+| **Ingestão** | CSV bruto por ticker em `data/`; fallback para cache se ticker delistado |
 | **Preprocessamento** | Série semanal com `Close`, log-retornos, `returns`, `drawdown` |
-| **EDA** | 11 gráficos Plotly (série, retornos, sazonalidade, correlação, volatilidade, ACF/PACF, heatmap mensal) |
+| **EDA** | 11 gráficos Plotly (série, retornos, sazonalidade, correlação, volatilidade, ACF/PACF, heatmap mensal, drawdown) |
 | **Decomposição** | Tendência + Sazonalidade + Resíduo (additive/multiplicativo auto-detectado) |
-| **ARIMA** | Ordem `(p,d,q)(P,D,Q,s)` otimizada por `auto_arima` |
-| **Forecast** | Previsão com IC 95% (12 semanas) |
+| **Modelos** | ARIMA/SARIMA (`auto_arima`), Prophet (Meta), LSTM (PyTorch, lookback=12, 50 epochs) |
+| **Comparação** | RMSE, SMAPE, R², MAE, MAPE entre os 3 modelos; walk-forward CV 5 folds; ranking visual |
+| **Forecast** | Previsão com IC 95% (12 semanas) para cada modelo |
 | **Outliers** | Anomalias batch (IQR sobre resíduos) + detecção em tempo real |
-| **Diagnóstico** | Ljung-Box, Jarque-Bera, RMSE, MAE, MAPE, walk-forward CV |
+| **Diagnóstico** | Ljung-Box, Jarque-Bera, RMSE, MAE, MAPE, SMAPE, R², walk-forward CV |
+| **Resíduos** | Série temporal, histograma + KDE, Q-Q plot para cada modelo |
+
+---
+
+## Modelos
+
+| Modelo | Pacote | Destaque |
+|--------|--------|----------|
+| **ARIMA/SARIMA** | `pmdarima` + `statsmodels` | Ordem `(p,d,q)(P,D,Q,s)` otimizada por `auto_arima` |
+| **Prophet** | `prophet` (Meta) | Changepoint prior = 0.05, sazonalidade semanal + anual |
+| **LSTM** | PyTorch 2.12 | Lookback=12, 2 camadas, dropout=0.2, 50 epochs |
+
+> Prophet venceu em 6/9 tickers (RMSE), ARIMA em 2/9, LSTM consistentemente em 3º. Pipeline ~35 min para 9 tickers × 3 modelos.
 
 ---
 
@@ -128,13 +148,16 @@ poetry install
 cd landing && npm install && cd ..
 ```
 
+> PyTorch 2.12 é instalado via pip separadamente (conflito com `triton` no Poetry):
+> `pip install torch==2.12.0`
+
 ### Pipeline (gerar JSON)
 
 ```bash
 poetry run python scripts/generate_dashboard_data.py
 ```
 
-> ~8 minutos. Resultado em `data/dashboard_data.json` (~3.2 MB).
+> ~35 minutos para 9 tickers × 3 modelos. Resultado em `data/dashboard_data.json` (~4.31 MB).
 
 ### Dashboard Local
 
@@ -191,20 +214,33 @@ st/
 │       └── styles/
 │           └── globals.css
 ├── scripts/
-│   ├── generate_dashboard_data.py # Pipeline completo
-│   └── extract_landing_data.py    # Subset para landing
+│   ├── generate_dashboard_data.py # Pipeline completo (ARIMA + Prophet + LSTM)
+│   ├── extract_landing_data.py    # Subset para landing
+│   ├── debug_yf.py                # Debug Yahoo Finance
+│   └── debug_csv.py               # Debug CSV
 ├── src/
-│   ├── config.py                  # Configuração central
-│   ├── ingest.py                  # Download yfinance + cache
+│   ├── config.py                  # Configuração central (incl. LSTM params)
+│   ├── ingest.py                  # Download yfinance + cache + fallback
 │   ├── preprocess.py              # Resample, log-retornos, features
 │   ├── eda.py                     # 11 gráficos Plotly
 │   ├── decompose.py               # Decomposição sazonal
 │   ├── outliers.py                # Detecção batch + real-time
-│   ├── modeling.py                # ARIMA fitting, forecast, diagnóstico
-│   └── dashboard.py               # App Streamlit
+│   ├── modeling.py                # Orquestração ARIMA (legado)
+│   ├── validation.py              # Métricas, CV, train/test split
+│   ├── anomaly_monitor.py         # Monitor contínuo de anomalias
+│   ├── pipeline.py                # CLI orquestrador completo
+│   ├── dashboard.py               # App Streamlit
+│   └── models/
+│       ├── __init__.py            # MODEL_REGISTRY (ARIMA, Prophet, LSTM)
+│       ├── base.py                # BaseModel ABC + compute_metrics
+│       ├── arima_model.py         # Wrapper auto_arima
+│       ├── prophet_model.py       # Wrapper Meta Prophet
+│       └── lstm_model.py          # LSTM PyTorch
 ├── tests/
-│   ├── test_dashboard_e2e.py      # Playwright E2E
-│   └── ...
+│   ├── test_preprocess.py
+│   ├── test_outliers.py
+│   ├── test_modeling.py
+│   └── test_dashboard_e2e.py      # Playwright E2E (12 testes)
 ├── CHANGELOG.md
 ├── TODO.md
 └── README.md
@@ -222,7 +258,7 @@ poetry run pytest tests/ -v
 poetry run pytest tests/test_dashboard_e2e.py -v
 ```
 
-> 7/8 testes E2E passam em ~12s. 1 xfail (limitação do Streamlit em troca de tab).
+> 12 testes E2E com Playwright, 11 passando, 1 xfail (limitação do Streamlit em troca de tab).
 
 ---
 
@@ -230,7 +266,7 @@ poetry run pytest tests/test_dashboard_e2e.py -v
 
 ### Dashboard (Streamlit Cloud)
 
-O deploy é automático via GitHub. O segredo: `data/dashboard_data.json` está commitado (exceção no `.gitignore`), então o Cloud carrega o JSON instantaneamente. Caso o JSON não exista, o pipeline roda como fallback (~8 min).
+O deploy é automático via GitHub. O segredo: `data/dashboard_data.json` está commitado (exceção no `.gitignore`), então o Cloud carrega o JSON instantaneamente. Caso o JSON não exista, o pipeline roda como fallback via `subprocess`.
 
 ### Landing Page (GitHub Pages)
 
@@ -246,15 +282,34 @@ npm run deploy
 
 ## Roadmap
 
+### Concluído
+
 - [x] Pipeline offline → JSON
-- [x] Dashboard instantâneo
-- [x] Landing page scrollytelling
-- [x] Navbar + Footer
-- [x] About Me Card
+- [x] Dashboard instantâneo (<2s)
+- [x] Landing page scrollytelling (React + Vite)
+- [x] Navbar + Footer estilo SANOVA
+- [x] About Me Card com tech tags e stats GitHub
 - [x] Vídeo background na Hero Section
-- [ ] Modo escuro/claro
-- [ ] Comparação entre modelos (ARIMA vs Prophet vs LSTM)
-- [ ] Suporte a mais frequências (diária, mensal)
+- [x] Comparação Multi-Modelo (ARIMA vs Prophet vs LSTM)
+- [x] Gráficos de Resíduos (série, histograma, Q-Q plot)
+- [x] Métricas de Confiabilidade (RMSE, MAE, MAPE, SMAPE, R², Ljung-Box, Jarque-Bera)
+- [x] Walk-forward Cross-Validation (5 folds)
+- [x] Testes E2E com Playwright (12 testes)
+- [x] Deploy Streamlit Cloud com fallback automático
+- [x] Deploy GitHub Pages
+
+### Melhorias Futuras
+
+| Prioridade | Item |
+|-----------|------|
+| Alta | Cache incremental do JSON (~35 min → ~30s) |
+| Média | CI/CD com GitHub Actions |
+| Média | Monitor de integração contínua (AnomalyMonitor em produção) |
+| Média | Dark/light theme toggle no dashboard |
+| Média | Gráficos de resíduos expandidos (subseção dedicada) |
+| Baixa | XGBoost/Random Forest como 4º modelo |
+| Baixa | Streamlit multi-página (visão geral vs detalhe) |
+| Baixa | i18n (português/inglês) |
 
 ---
 
