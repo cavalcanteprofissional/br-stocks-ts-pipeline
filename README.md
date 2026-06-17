@@ -24,6 +24,12 @@
   </a>
 </p>
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=KxS8jGZ89RA">
+    <img src="https://img.youtube.com/vi/KxS8jGZ89RA/maxresdefault.jpg" alt="Vídeo de apresentação do projeto" width="700" />
+  </a>
+</p>
+
 ---
 
 ## Fluxo
