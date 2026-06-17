@@ -1,5 +1,10 @@
 <p align="center">
-  <img src="landing/src/assets/thumbnail.png" alt="BR Stocks" width="700" />
+  <a href="https://www.youtube.com/watch?v=KxS8jGZ89RA">
+    <img src="landing/src/assets/thumbnail.png" alt="BR Stocks" width="700" />
+  </a>
+</p>
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=KxS8jGZ89RA">link do vídeo</a>
 </p>
 
 <h1 align="center">BR Stocks — Análise de Séries Temporais</h1>
@@ -21,12 +26,6 @@
   </a>
   <a href="https://github.com/cavalcanteprofissional/br-stocks-ts-pipeline/releases">
     <img src="https://img.shields.io/badge/Version-0.11.0-blue?style=flat-square" alt="Version" />
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=KxS8jGZ89RA">
-    <img src="https://img.youtube.com/vi/KxS8jGZ89RA/maxresdefault.jpg" alt="Vídeo de apresentação do projeto" width="700" />
   </a>
 </p>
 
